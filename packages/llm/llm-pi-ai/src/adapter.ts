@@ -372,6 +372,11 @@ export class PiAiAdapter extends LlmAdapter {
             maxBytes: profile.requestImageMaxBytes,
           },
         }, onReplayDegrade)
+      // Session attribution mirrors dsh-llm-deepseek: session-aware gateways
+      // route on the wire header rather than the request body.
+      const withSessionHeaders = options.sessionId === undefined
+        ? profile.headers
+        : { ...profile.headers, 'x-deepseek-harness-session-id': String(options.sessionId) }
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
@@ -380,7 +385,7 @@ export class PiAiAdapter extends LlmAdapter {
         signal: watchdog.signal,
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
-        headers: requestHeaders(profile.headers),
+        headers: requestHeaders(withSessionHeaders),
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal)[Symbol.asyncIterator]()
       let exhausted = false
